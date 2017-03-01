@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["snuk182 <snuk188@gmail.com>"]
 
 [dependencies]
-nuklear-rust = {version = "^0.1", features = ["rust_allocator"]}
+nuklear-rust = {version = "^0.2.1", features = ["rust_allocator"]}
 nuklear-backend-glium = "^0.1"
 glium = "*"
 glutin = "*"
@@ -13,3 +13,6 @@ image = "*"
 [[bin]]
 name = "t"
 path = "src/main.rs"
+
+[replace]
+"nuklear-backend-glium:0.1.0" = { git = "https://github.com/mystal/nuklear-backend-glium", branch = "dev" }

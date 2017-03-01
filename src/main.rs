@@ -2,7 +2,6 @@
 extern crate nuklear_rust;
 extern crate nuklear_backend_glium;
 
-#[macro_use]
 extern crate image;
 
 extern crate glium;
@@ -78,13 +77,18 @@ struct Media {
 }
 
 fn icon_load(display: &mut Display, drawer: &mut Drawer, filename: &str) -> NkImage {
+    use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
 
     let img = image::load(BufReader::new(File::open(filename).unwrap()), image::PNG).unwrap().to_rgba();
 
     let (w, h) = img.dimensions();
     let data = img.into_vec();
 
-    let mut hnd = drawer.add_texture(display, data.as_slice(), w, h);
+    let mut sampler_opts: glium::uniforms::SamplerBehavior = Default::default();
+    sampler_opts.minify_filter = MinifySamplerFilter::LinearMipmapNearest;
+    sampler_opts.magnify_filter = MagnifySamplerFilter::Linear;
+
+    let mut hnd = drawer.add_texture(display, data.as_slice(), w, h, Some(sampler_opts));
 
     NkImage::with_id(hnd.id().unwrap())
 }
@@ -131,8 +135,13 @@ fn main() {
     let font_22 = atlas.add_font_with_config(&cfg).unwrap();
 
     let font_tex = {
+        use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter};
+
         let (b, w, h) = atlas.bake(NkFontAtlasFormat::NK_FONT_ATLAS_RGBA32);
-        drawer.add_texture(&mut display, b, w, h)
+        let mut sampler_opts: glium::uniforms::SamplerBehavior = Default::default();
+        sampler_opts.minify_filter = MinifySamplerFilter::Linear;
+        sampler_opts.magnify_filter = MagnifySamplerFilter::Linear;
+        drawer.add_texture(&mut display, b, w, h, Some(sampler_opts))
     };
 
     let mut null = NkDrawNullTexture::default();
@@ -287,7 +296,7 @@ fn main() {
         grid_demo(&mut ctx, &mut media, &mut grid_state);
 
         let mut frame = display.draw();
-		frame.clear_color(0.5, 0.3, 0.4, 1.0);
+		frame.clear_color_srgb(0.3, 0.3, 0.3, 1.0);
 		
 		drawer.draw(&mut ctx,
 	                &mut config,
@@ -295,7 +304,7 @@ fn main() {
                     scale);
         frame.set_finish().unwrap();
 
-        //::std::thread::sleep(::std::time::Duration::from_millis(20));
+        ::std::thread::sleep(::std::time::Duration::from_millis(20));
 
         ctx.clear();
     }
@@ -326,16 +335,12 @@ fn ui_widget_centered(ctx: &mut NkContext, media: &mut Media, height: f32) {
 }
 
 fn free_type(_: NkTextEdit, c: char) -> bool {
-    (c > '\u{0080}')
+    (c > '\u{0030}')
 }
 
 fn grid_demo(ctx: &mut NkContext, media: &mut Media, state: &mut GridState) {
-    let mut layout = NkPanel::default();
-    let mut combo = NkPanel::default();
-
     ctx.style_set_font(&media.font_20.handle());
-    if ctx.begin(&mut layout,
-                 nk_string!("Grid Nuklear Rust!"),
+    if ctx.begin(nk_string!("Grid Nuklear Rust!"),
                  NkRect {
                      x: 600f32,
                      y: 350f32,
@@ -370,8 +375,7 @@ fn grid_demo(ctx: &mut NkContext, media: &mut Media, state: &mut GridState) {
         ctx.text("Combobox:", NkTextAlignment::NK_TEXT_RIGHT as NkFlags);
 
         let widget_width = ctx.widget_width();
-        if ctx.combo_begin_text(&mut combo,
-                                state.items[state.selected_item],
+        if ctx.combo_begin_text(state.items[state.selected_item],
                                 NkVec2 {
                                     x: widget_width,
                                     y: 200f32,
@@ -390,13 +394,9 @@ fn grid_demo(ctx: &mut NkContext, media: &mut Media, state: &mut GridState) {
 }
 
 fn button_demo(ctx: &mut NkContext, media: &mut Media, state: &mut ButtonState) {
-    let mut layout = NkPanel::default();
-    let mut menu = NkPanel::default();
-
     ctx.style_set_font(&media.font_20.handle());
 
-    ctx.begin(&mut layout,
-              nk_string!("Button Nuklear Rust!"),
+    ctx.begin(nk_string!("Button Nuklear Rust!"),
               NkRect {
                   x: 50f32,
                   y: 50f32,
@@ -412,8 +412,7 @@ fn button_demo(ctx: &mut NkContext, media: &mut Media, state: &mut ButtonState) 
     {
         // toolbar
         ctx.layout_row_static(40f32, 40, 4);
-        if ctx.menu_begin_image(&mut menu,
-                                nk_string!("Music"),
+        if ctx.menu_begin_image(nk_string!("Music"),
                                 media.play.clone(),
                                 NkVec2 {
                                     x: 110f32,
@@ -545,8 +544,7 @@ fn button_demo(ctx: &mut NkContext, media: &mut Media, state: &mut ButtonState) 
     // ------------------------------------------------
     ctx.style_set_font(&media.font_18.handle());
     let bounds = ctx.window_get_bounds();
-    if ctx.contextual_begin(&mut menu,
-                            NkPanelFlags::NK_WINDOW_NO_SCROLLBAR as NkFlags,
+    if ctx.contextual_begin(NkPanelFlags::NK_WINDOW_NO_SCROLLBAR as NkFlags,
                             NkVec2 {
                                 x: 150f32,
                                 y: 300f32,
@@ -580,12 +578,8 @@ fn button_demo(ctx: &mut NkContext, media: &mut Media, state: &mut ButtonState) 
 }
 
 fn basic_demo(ctx: &mut NkContext, media: &mut Media, state: &mut BasicState) {
-    let mut layout = NkPanel::default();
-    let mut combo = NkPanel::default();
-
     ctx.style_set_font(&media.font_20.handle());
-    ctx.begin(&mut layout,
-              nk_string!("Basic Nuklear Rust!"),
+    ctx.begin(nk_string!("Basic Nuklear Rust!"),
               NkRect {
                   x: 320f32,
                   y: 50f32,
@@ -618,9 +612,7 @@ fn basic_demo(ctx: &mut NkContext, media: &mut Media, state: &mut BasicState) {
     //                  IMAGE POPUP
     // ------------------------------------------------
     if state.image_active {
-        let mut popup = NkPanel::default();
-        if ctx.popup_begin(&mut popup,
-                           NkPopupType::NK_POPUP_STATIC,
+        if ctx.popup_begin(NkPopupType::NK_POPUP_STATIC,
                            nk_string!("Image Popup"),
                            0,
                            NkRect {
@@ -646,8 +638,7 @@ fn basic_demo(ctx: &mut NkContext, media: &mut Media, state: &mut BasicState) {
     ui_header(ctx, media, "Combo box");
     ui_widget(ctx, media, 40f32);
     let widget_width = ctx.widget_width();
-    if ctx.combo_begin_text(&mut combo,
-                            state.items[state.selected_item],
+    if ctx.combo_begin_text(state.items[state.selected_item],
                             NkVec2 {
                                 x: widget_width,
                                 y: 200f32,
@@ -663,8 +654,7 @@ fn basic_demo(ctx: &mut NkContext, media: &mut Media, state: &mut BasicState) {
 
     ui_widget(ctx, media, 40f32);
     let widget_width = ctx.widget_width();
-    if ctx.combo_begin_image_text(&mut combo,
-                                  state.items[state.selected_icon],
+    if ctx.combo_begin_image_text(state.items[state.selected_icon],
                                   media.images[state.selected_icon].clone(),
                                   NkVec2 {
                                       x: widget_width,
@@ -700,8 +690,8 @@ fn basic_demo(ctx: &mut NkContext, media: &mut Media, state: &mut BasicState) {
     // ------------------------------------------------
     //                  PIEMENU
     // ------------------------------------------------
-    if ctx.input().is_mouse_click_down_in_rect(NkButton::NK_BUTTON_RIGHT, layout.bounds(), true) {
-        state.piemenu_pos = ctx.input().mouse().pos();
+    if ctx.input().is_mouse_click_down_in_rect(NkButton::NK_BUTTON_RIGHT, ctx.window_get_bounds(), true) {
+        state.piemenu_pos = ctx.input().mouse().pos().clone();
         state.piemenu_active = true;
     }
 
@@ -728,12 +718,11 @@ fn basic_demo(ctx: &mut NkContext, media: &mut Media, state: &mut BasicState) {
 fn ui_piemenu(ctx: &mut NkContext, pos: NkVec2, radius: f32, icons: &[NkImage]) -> i32 {
     let mut ret = -1i32;
     let mut total_space = NkRect::default();
-    let mut popup = NkPanel::default();
     let mut bounds = NkRect::default();
     let mut active_item = 0;
 
     // pie menu popup
-    let border = ctx.style().window().border_color();
+    let border = ctx.style().window().border_color().clone();
     let background = ctx.style().window().fixed_background();
     ctx.style().window().set_fixed_background(NkStyleItem::hide());
     ctx.style().window().set_border_color(color_rgba(0, 0, 0, 0));
@@ -742,8 +731,7 @@ fn ui_piemenu(ctx: &mut NkContext, pos: NkVec2, radius: f32, icons: &[NkImage]) 
     ctx.style().window().set_spacing(NkVec2 { x: 0f32, y: 0f32 });
     ctx.style().window().set_padding(NkVec2 { x: 0f32, y: 0f32 });
 
-    if ctx.popup_begin(&mut popup,
-                       NkPopupType::NK_POPUP_STATIC,
+    if ctx.popup_begin(NkPopupType::NK_POPUP_STATIC,
                        nk_string!("piemenu"),
                        NkPanelFlags::NK_WINDOW_NO_SCROLLBAR as NkFlags,
                        NkRect {
